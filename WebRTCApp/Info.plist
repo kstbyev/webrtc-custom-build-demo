@@ -6,5 +6,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Приложению требуется доступ к микрофону для WebRTC аудио связи и тестирования инжекции шума.</string>
 </dict>
 </plist>

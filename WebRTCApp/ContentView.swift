@@ -6,83 +6,192 @@
 //
 
 import SwiftUI
-import CoreData
+import AVFoundation
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
-
+    @StateObject private var audioProcessor = WebRTCAudioProcessor()
+    @State private var noiseLevel: Float = 0.01
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+            VStack(spacing: 30) {
+                // Header
+                VStack(spacing: 10) {
+                    Text("🎙️ WebRTC Демо Приложение")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Кастомная сборка WebRTC с инжекцией шума")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                // Status indicator
+                HStack {
+                    Circle()
+                        .fill(audioProcessor.isProcessing ? Color.green : Color.red)
+                        .frame(width: 12, height: 12)
+                    Text(audioProcessor.isProcessing ? "Обработка аудио активна" : "Обработка аудио неактивна")
+                        .font(.caption)
+                }
+                
+                // Noise level control
+                VStack(spacing: 10) {
+                    Text("Уровень шума: \(String(format: "%.2f", noiseLevel))")
+                        .font(.headline)
+                    
+                    Slider(value: $noiseLevel, in: 0.0...1.0, step: 0.01)
+                        .accentColor(.blue)
+                        .onChange(of: noiseLevel) { newValue in
+                            audioProcessor.setNoiseLevel(newValue)
+                        }
+                }
+                .padding(.horizontal)
+                
+                // Audio processing controls
+                VStack(spacing: 10) {
+                    Text("Обработка аудио")
+                        .font(.headline)
+                    
+                    HStack(spacing: 20) {
+                        Button(action: {
+                            audioProcessor.startAudioProcessing()
+                        }) {
+                            HStack {
+                                Image(systemName: "play.circle.fill")
+                                Text("Запустить")
+                            }
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(audioProcessor.isProcessing)
+                        
+                        Button(action: {
+                            audioProcessor.stopAudioProcessing()
+                        }) {
+                            HStack {
+                                Image(systemName: "stop.circle.fill")
+                                Text("Остановить")
+                            }
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(!audioProcessor.isProcessing)
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                
+                // Status
+                VStack(spacing: 10) {
+                    Text("Статус")
+                        .font(.headline)
+                    
+                    HStack(spacing: 15) {
+                        StatusCard(
+                            title: "Кастомная сборка",
+                            value: "Готова",
+                            color: .blue,
+                            icon: "checkmark.circle.fill"
+                        )
+                        
+                        StatusCard(
+                            title: "Инжекция шума",
+                            value: "Включена",
+                            color: .orange,
+                            icon: "waveform.path.ecg"
+                        )
                     }
                 }
+                
+                // Logs
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Журнал обработки")
+                        .font(.headline)
+                    
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 5) {
+                            ForEach(audioProcessor.logs, id: \.self) { log in
+                                Text(log)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .frame(height: 120)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+                
+                // Info
+                VStack(spacing: 5) {
+                    Text("ℹ️ Настоящая WebRTC интеграция активна")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("WebRTC M110 (218b56e) с патчем инжекции шума")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Проверьте консоль для логов WebRTC обработки")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
             }
-            Text("Select an item")
+            .padding()
+            .navigationBarHidden(true)
+        }
+        .onAppear {
+            requestMicrophonePermission()
         }
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+    
+    private func requestMicrophonePermission() {
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            DispatchQueue.main.async {
+                if granted {
+                    audioProcessor.addLog("✅ Разрешение на микрофон получено")
+                } else {
+                    audioProcessor.addLog("❌ Разрешение на микрофон отклонено")
+                }
             }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+struct StatusCard: View {
+    let title: String
+    let value: String
+    let color: Color
+    let icon: String
+    
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Text(value)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+    }
+}
 
 #Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    ContentView()
 }
