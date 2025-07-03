@@ -18,6 +18,12 @@ Framework was built for:
 - `ios_arm64`
 - `ios_sim_arm64_x86_64`
 
+### Build Info
+- WebRTC Commit: `218b56e516386cd57c7513197528c3124bcd7ef3`
+- SHA-256 (WebRTC.xcframework): `2598307f788ab668e0f42b2a1daef4306adbb9ec9c3959441064e8e84f7310ee`
+
+
+
 Then combined via:
 
 ```bash
