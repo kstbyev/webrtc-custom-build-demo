@@ -1,1 +1,2 @@
 WebRTC.xcframework/**/WebRTC filter=lfs diff=lfs merge=lfs -text
+WebRTC.xcframework/**/* filter=lfs diff=lfs merge=lfs -text
