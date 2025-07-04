@@ -10,7 +10,6 @@ import AVFoundation
 
 struct ContentView: View {
     @StateObject private var audioProcessor = WebRTCAudioProcessor()
-    @State private var noiseLevel: Float = 0.01
     
     var body: some View {
         NavigationView {
@@ -38,14 +37,11 @@ struct ContentView: View {
                 
                 // Noise level control
                 VStack(spacing: 10) {
-                    Text("Уровень шума: \(String(format: "%.2f", noiseLevel))")
+                    Text("Уровень шума: \(String(format: "%.2f", audioProcessor.noiseLevel))")
                         .font(.headline)
                     
-                    Slider(value: $noiseLevel, in: 0.0...1.0, step: 0.01)
+                    Slider(value: $audioProcessor.noiseLevel, in: 0.0...1.0, step: 0.01)
                         .accentColor(.blue)
-                        .onChange(of: noiseLevel) { newValue in
-                            audioProcessor.setNoiseLevel(newValue)
-                        }
                 }
                 .padding(.horizontal)
                 
